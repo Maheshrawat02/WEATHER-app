@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:weather/modules/weather/controllers/weather_controller.dart';
@@ -49,6 +48,7 @@ class _HomeViewState extends State<HomeView> {
     await controller.searchWeather(city);
   }
 
+  // CHANGED: brought back - clears the result and returns to the start state
   void _goBackToSearch() {
     FocusScope.of(context).unfocus();
     searchController.clear();
@@ -118,73 +118,7 @@ class _HomeViewState extends State<HomeView> {
     return '$h12 ${h >= 12 ? 'pm' : 'am'}';
   }
 
-  // UNCHANGED: search screen (before any city is searched)
-  Widget _buildSearchBar() {
-    final bool focused = _searchFocus.hasFocus;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-
-        ListTile(
-          title: Text(
-            "Discover the weather",
-            style: TextStyle(
-              color: Colors.black,
-              fontSize: 25,
-              fontWeight: FontWeight.bold
-            ),
-          ),
-          subtitle: Text(
-            "Search any city to check its current weather.",
-            style: TextStyle(
-              fontSize: 15,
-            ),
-          ),
-        ),
-
-        SizedBox(height: 12,),
-
-        TextField(
-          controller: searchController,
-          focusNode: _searchFocus,
-          textInputAction: TextInputAction.search,
-          onSubmitted: (_) => searchWeather(),
-          style: const TextStyle(color: textColor, fontSize: 15),
-          cursorColor: textColor,
-          decoration: InputDecoration(
-            hintText: 'Search city name...',
-            hintStyle: const TextStyle(color: Colors.black54, fontSize: 14),
-            prefixIcon: const Icon(Icons.location_on_outlined, color: textColor),
-            filled: focused,
-            fillColor: Colors.white.withOpacity(0.15),
-            contentPadding: const EdgeInsets.symmetric(vertical: 16),
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: textColor, width: 1.5),
-            ),
-          ),
-        ),
-
-        Obx(() {
-          if (controller.error.value.isEmpty) return const SizedBox.shrink();
-          return Padding(
-            padding: const EdgeInsets.only(top: 14),
-            child: Text(
-              getFriendlyErrorMessage(controller.error.value),
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: textColor, fontSize: 14),
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  // Same search field design, shown on the weather screen
-  // (between date/time and the temperature display)
+  // Search field (same design as before)
   Widget _buildTopSearchField() {
     final bool focused = _searchFocus.hasFocus;
 
@@ -216,10 +150,12 @@ class _HomeViewState extends State<HomeView> {
   Widget build(BuildContext context) {
     final now = DateTime.now();
 
-    final double keyboardInset = MediaQuery.of(context).viewInsets.bottom;
-
+    // CHANGED: Obx + PopScope wrapped around the Scaffold.
+    // While a weather result is showing, system back goes to the start state
+    // instead of exiting the app. On the start state, back exits as normal.
     return Obx(() {
-      final bool canPop = controller.weather.value == null;
+      final bool canPop =
+          controller.weather.value == null && controller.error.value.isEmpty;
 
       return PopScope(
         canPop: canPop,
@@ -233,7 +169,6 @@ class _HomeViewState extends State<HomeView> {
             onTap: () => FocusScope.of(context).unfocus(),
             child: Stack(
               children: [
-
                 Container(
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
@@ -260,87 +195,64 @@ class _HomeViewState extends State<HomeView> {
 
                 SafeArea(
                   child: Padding(
-                    padding: EdgeInsets.only(
-                      left: 22,
-                      right: 22,
-                      bottom: controller.weather.value == null
-                          ? keyboardInset
-                          : 0,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 22),
                     child: Column(
                       children: [
                         const SizedBox(height: 12),
 
-                        // Header (no menu icon): back icon + date/time
-                        Obx(() {
-                          final hasWeather = controller.weather.value != null;
-
-                          final dateTime = Column(
-                            crossAxisAlignment: hasWeather
-                                ? CrossAxisAlignment.end
-                                : CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _dateText(now),
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: textColor,
-                                ),
-                              ),
-                              Text(
-                                _timeText(now),
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: textColor,
-                                ),
-                              ),
-                            ],
-                          );
-
-                          if (!hasWeather) {
-                            return Row(
-                              children: [
-                                Container(
-                                  padding:
-                                      const EdgeInsets.only(top: 15, left: 15),
-                                  child: dateTime,
-                                ),
-                              ],
-                            );
-                          }
-
-                          return Padding(
-                            padding: const EdgeInsets.only(
-                                top: 15, left: 5, right: 15),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                GestureDetector(
-                                  onTap: _goBackToSearch,
-                                  child: const Icon(
-                                    Icons.arrow_back_ios_new_rounded,
-                                    size: 22,
-                                    color: textColor,
+                        Row(
+                          children: [
+                            Container(
+                              padding:
+                                  const EdgeInsets.only(top: 15, left: 15),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _dateText(now),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: textColor,
+                                    ),
                                   ),
-                                ),
-                                const Spacer(),
-                                dateTime,
-                              ],
+                                  Text(
+                                    _timeText(now),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: textColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          );
-                        }),
+                          ],
+                        ),
 
-                        // Search field below date/time, above temperature
-                        Obx(() {
-                          if (controller.weather.value == null) {
-                            return const SizedBox.shrink();
-                          }
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 10),
-                            child: _buildTopSearchField(),
-                          );
-                        }),
+                        const Padding(
+                          padding: EdgeInsets.only(top: 14),
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(
+                              "Discover the weather",
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontSize: 25,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            subtitle: Text(
+                              "Search any city to check its current weather.",
+                              style: TextStyle(
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        _buildTopSearchField(),
 
                         Expanded(
                           child: Obx(() {
@@ -354,11 +266,50 @@ class _HomeViewState extends State<HomeView> {
                             }
 
                             if (controller.weather.value == null) {
-                              return Center(
-                                child: Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 8),
-                                  child: _buildSearchBar(),
+                              // error after a failed search
+                              if (controller.error.value.isNotEmpty) {
+                                return Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 20),
+                                    child: Text(
+                                      getFriendlyErrorMessage(
+                                          controller.error.value),
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: textColor,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+
+                              return Padding(
+                                padding:
+                                    EdgeInsets.symmetric(horizontal: 20),
+                                child: Column(
+                                  children: [
+                                    SizedBox(
+                                      height: 210,
+                                    ),
+                                    Text(
+                                      "Explore the weather",
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: textColor,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    Text(
+                                      "Enter a city name above to see "
+                                      "the latest weather information",
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               );
                             }
@@ -454,7 +405,6 @@ class _HomeViewState extends State<HomeView> {
                                         color: textColor,
                                       ),
                                     ),
-
                                   ],
                                 ),
                               ),
@@ -462,18 +412,14 @@ class _HomeViewState extends State<HomeView> {
                           }),
                         ),
 
-                        // CHANGED: "Weather Forecast" ListTile shown right
-                        // below the temperature display (only after a search)
+                        // "Weather Forecast" ListTile (only after a search)
                         Obx(() {
                           if (controller.weather.value == null) {
                             return const SizedBox.shrink();
                           }
-                          return Padding(
-                            padding: const EdgeInsets.only(
-                              top: 20,
-                              bottom: 10
-                            ),
-                            child: const ListTile(
+                          return const Padding(
+                            padding: EdgeInsets.only(top: 20, bottom: 10),
+                            child: ListTile(
                               contentPadding: EdgeInsets.zero,
                               title: Text(
                                 "Weather Forecast",
@@ -511,7 +457,6 @@ class _HomeViewState extends State<HomeView> {
                                 return Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-
                                     Text(
                                       '$temp °C',
                                       style: const TextStyle(
@@ -549,7 +494,7 @@ class _HomeViewState extends State<HomeView> {
                           }
                           return Padding(
                             padding:
-                                const EdgeInsets.only(top: 20, bottom: 130),
+                                const EdgeInsets.only(top: 20, bottom: 60),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
@@ -557,24 +502,25 @@ class _HomeViewState extends State<HomeView> {
                                   width: double.infinity,
                                   height: 52,
                                   child: OutlinedButton(
-                                    
-                                    onPressed: () => Get.to(() => ForecastView()),
+                                    onPressed: () =>
+                                        Get.to(() => ForecastView()),
                                     style: OutlinedButton.styleFrom(
-                                      
                                       backgroundColor:
                                           Colors.white.withOpacity(0.15),
                                       foregroundColor: textColor,
-                                      side: const BorderSide(color: Colors.black38),
+                                      side: const BorderSide(
+                                          color: Colors.black38),
                                       shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(15),
+                                        borderRadius:
+                                            BorderRadius.circular(15),
                                       ),
                                     ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                    child: const Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
-
                                         Icon(Icons.calendar_month_outlined),
-                                        const Text(
+                                        Text(
                                           ' Explore Forecast',
                                           style: TextStyle(
                                             fontSize: 20,
@@ -587,9 +533,10 @@ class _HomeViewState extends State<HomeView> {
                                   ),
                                 ),
 
-                                SizedBox(height: 20,),
+                                const SizedBox(height: 20),
 
-                                Text("Weather information at your fringertips")
+                                const Text(
+                                    "Weather information at your fringertips")
                               ],
                             ),
                           );
@@ -694,3 +641,4 @@ class _StreakPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+

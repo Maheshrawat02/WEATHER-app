@@ -18,8 +18,14 @@ class WeatherController extends GetxController{
     isLoading(true);
     error("");
 
-    weather.value = await service.getWeather(cityName);
-    forecasts.value = await service.getForecast(cityName);
+    weather.value = null;
+    forecasts.clear();
+
+    final weatherResult = await service.getWeather(cityName);
+    final forecastResult = await service.getForecast(cityName);
+
+    weather.value = weatherResult;
+    forecasts.value = forecastResult;
   
   }catch(e){
 
