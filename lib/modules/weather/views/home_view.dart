@@ -118,31 +118,138 @@ class _HomeViewState extends State<HomeView> {
     return '$h12 ${h >= 12 ? 'pm' : 'am'}';
   }
 
+  // CHANGED (suggestions): text shown for each suggestion, e.g.
+  // "Happy Valley, VA, US" or "Pokhara, NP"
+  String _placeLabel(Map<String, dynamic> place) {
+    final name = place["name"] ?? "";
+    final state = place["state"];
+    final country = place["country"] ?? "";
+
+    if (state == null || state.toString().isEmpty) {
+      return '$name, $country';
+    }
+    return '$name, $state, $country';
+  }
+
   // Search field (same design as before)
+  // CHANGED (suggestions): the same TextField is now wrapped in
+  // RawAutocomplete, which shows a dropdown of matching places under it.
   Widget _buildTopSearchField() {
     final bool focused = _searchFocus.hasFocus;
 
-    return TextField(
-      controller: searchController,
-      focusNode: _searchFocus,
-      textInputAction: TextInputAction.search,
-      onSubmitted: (_) => searchWeather(),
-      style: const TextStyle(color: textColor, fontSize: 15),
-      cursorColor: textColor,
-      decoration: InputDecoration(
-        hintText: 'Search city name...',
-        hintStyle: const TextStyle(color: Colors.black54, fontSize: 14),
-        prefixIcon: const Icon(Icons.location_on_outlined, color: textColor),
-        filled: focused,
-        fillColor: Colors.white.withOpacity(0.15),
-        contentPadding: const EdgeInsets.symmetric(vertical: 16),
-        border: InputBorder.none,
-        enabledBorder: InputBorder.none,
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: textColor, width: 1.5),
-        ),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return RawAutocomplete<Map<String, dynamic>>(
+          textEditingController: searchController,
+          focusNode: _searchFocus,
+
+          // CHANGED (suggestions): what the field shows after a tap
+          displayStringForOption: (place) => _placeLabel(place),
+
+          // CHANGED (suggestions): looks up matches while typing.
+          // Needs 2+ letters and waits 400 ms after the last key press,
+          // so it does not call the API on every letter.
+          optionsBuilder: (TextEditingValue value) async {
+            final query = value.text.trim();
+
+            if (query.length < 2) return const <Map<String, dynamic>>[];
+
+            await Future.delayed(const Duration(milliseconds: 400));
+
+            // the user kept typing, so skip this lookup
+            if (query != searchController.text.trim()) {
+              return const <Map<String, dynamic>>[];
+            }
+
+            try {
+              return await controller.service.searchCities(query);
+            } catch (_) {
+              return const <Map<String, dynamic>>[];
+            }
+          },
+
+          // CHANGED (suggestions): tapping a suggestion loads that exact place
+          onSelected: (place) async {
+            FocusScope.of(context).unfocus();
+            await controller.searchWeatherByPlace(place);
+          },
+
+          // CHANGED (suggestions): the dropdown list design
+          optionsViewBuilder: (context, onSelected, options) {
+            return Align(
+              alignment: Alignment.topLeft,
+              child: Material(
+                color: Colors.white.withOpacity(0.92),
+                elevation: 0,
+                clipBehavior: Clip.antiAlias,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Colors.black26),
+                ),
+                child: SizedBox(
+                  width: constraints.maxWidth,
+                  child: ListView.separated(
+                    padding: EdgeInsets.zero,
+                    shrinkWrap: true,
+                    itemCount: options.length,
+                    separatorBuilder: (_, __) =>
+                        const Divider(height: 1, color: Colors.black12),
+                    itemBuilder: (context, i) {
+                      final place = options.elementAt(i);
+                      return ListTile(
+                        dense: true,
+                        leading: const Icon(
+                          Icons.location_on_outlined,
+                          size: 20,
+                          color: textColor,
+                        ),
+                        title: Text(
+                          _placeLabel(place),
+                          style: const TextStyle(
+                            color: textColor,
+                            fontSize: 14,
+                          ),
+                        ),
+                        onTap: () => onSelected(place),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            );
+          },
+
+          // The original TextField, unchanged except that it uses the
+          // controller and focus node handed over by RawAutocomplete
+          // (they are the same searchController and _searchFocus).
+          fieldViewBuilder: (context, textController, focusNode, onSubmit) {
+            return TextField(
+              controller: textController,
+              focusNode: focusNode,
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => searchWeather(),
+              style: const TextStyle(color: textColor, fontSize: 15),
+              cursorColor: textColor,
+              decoration: InputDecoration(
+                hintText: 'Search city name...',
+                hintStyle:
+                    const TextStyle(color: Colors.black54, fontSize: 14),
+                prefixIcon:
+                    const Icon(Icons.location_on_outlined, color: textColor),
+                filled: focused,
+                fillColor: Colors.white.withOpacity(0.15),
+                contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: textColor, width: 1.5),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
