@@ -5,7 +5,7 @@ import 'package:weather/modules/weather/models/weather_model.dart';
 class WeatherService {
   final Dio dio = Dio();
 
-  static const String _apiKey = "ef3299a46301ca01cad1f7bae5579af9"; // put your own key here
+  static const String _apiKey = "yourAPIKey"; // put your own key here
 
   // Checks the name with the Geocoding API (exact name match).
   // Returns the matching place, or throws "City not found".
